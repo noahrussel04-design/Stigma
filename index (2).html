@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#020a06">
+<title>S.T.I.G.M.A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020a06; --panel: #06160d; --line: #0e3a25;
+    --accent: #2dff8a; --accent2: #17b866; --text: #d6f5e3; --dim: #6aa886;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { overflow: hidden; }
+  #app { height: 100dvh; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+  h1 { margin: 0; font: 700 15px Orbitron, system-ui, sans-serif; letter-spacing: .32em; color: var(--accent);
+    text-shadow: 0 0 12px rgba(45,255,138,.5); }
+  .tools { display: flex; gap: 6px; align-items: center; }
+  .chip { font-size: 12px; color: var(--dim); background: transparent; border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 10px; display: flex; gap: 6px; align-items: center; font-family: inherit; }
+  button.chip { cursor: pointer; }
+  .chip input { accent-color: var(--accent); margin: 0; }
+  #stage { position: relative; flex: 1; min-height: 180px; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #status { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center;
+    font: 500 11px Orbitron, system-ui, sans-serif; letter-spacing: .35em; color: var(--accent);
+    text-shadow: 0 0 10px rgba(45,255,138,.6); }
+  #cap { max-height: 26vh; overflow-y: auto; padding: 4px 16px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .l { line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .you { color: var(--dim); font-size: 14px; }
+  .bot { color: var(--text); font-size: 17px; text-shadow: 0 0 14px rgba(45,255,138,.18); }
+  form { display: flex; gap: 8px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  input[type=text] { flex: 1; min-width: 0; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font-size: 16px; outline: none; }
+  input[type=text]:focus { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(45,255,138,.15); }
+  .btn { border: 1px solid var(--accent2); background: rgba(23,184,102,.14); color: var(--accent);
+    border-radius: 12px; padding: 0 16px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .btn.alt { border-color: var(--line); color: var(--dim); background: transparent; padding: 8px 12px; font-weight: 500; }
+  .btn:active { background: rgba(45,255,138,.25); }
+  #panel { position: fixed; inset: 0; background: rgba(2,10,6,.97); display: none; flex-direction: column;
+    z-index: 5; max-width: 720px; margin: 0 auto; padding-top: env(safe-area-inset-top, 0px); }
+  #panel.open { display: flex; }
+  #phead { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
+  #ptitle { font: 700 13px Orbitron, system-ui, sans-serif; letter-spacing: .3em; color: var(--accent); }
+  #pbody { flex: 1; overflow-y: auto; padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .row span { min-width: 0; overflow-wrap: anywhere; }
+  .wide { align-self: stretch; padding: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>S.T.I.G.M.A</h1>
+    <div class="tools">
+      <label class="chip"><input type="checkbox" id="voice" checked> Voice</label>
+      <button class="chip" id="logBtn" type="button">Log</button>
+      <button class="chip" id="memBtn" type="button">Memory</button>
+    </div>
+  </header>
+  <div id="stage"><canvas id="c"></canvas><div id="status">ONLINE</div></div>
+  <div id="cap"></div>
+  <form id="f">
+    <button type="button" class="btn alt" id="mic">Mic</button>
+    <input type="text" id="t" autocomplete="off" enterkeyhint="send" placeholder="Talk to STIGMA">
+    <button class="btn">Send</button>
+  </form>
+</div>
+
+<div id="panel">
+  <div id="phead"><div id="ptitle"></div><button class="btn alt" id="pclose" type="button">Close</button></div>
+  <div id="pbody"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+let history = store.get('stigma_history', []);
+let memory = store.get('stigma_memory', []);
+let pw = ''; try { pw = localStorage.getItem('stigma_pw') || ''; } catch (e) {}
+$('voice').checked = store.get('stigma_voice', true);
+$('voice').onchange = () => store.set('stigma_voice', $('voice').checked);
+
+/* ---------- state ---------- */
+let state = 'idle';
+const LABEL = { idle: 'ONLINE', listening: 'LISTENING', thinking: 'PROCESSING', speaking: 'SPEAKING' };
+let flashTimer = null;
+function setState(s) { state = s; $('status').textContent = LABEL[s]; }
+function flash(msg) {
+  $('status').textContent = msg;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { $('status').textContent = LABEL[state]; }, 1800);
+}
+
+/* ---------- audio level (for the 3D reaction) ---------- */
+let actx = null, analyser = null, buf = null;
+function ensureAudio() {
+  if (actx) return;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = actx.createAnalyser(); analyser.fftSize = 256;
+    buf = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) { actx = null; analyser = null; }
+}
+function level() {
+  if (!analyser) return 0.4 + 0.3 * Math.sin(performance.now() / 90);
+  analyser.getByteFrequencyData(buf);
+  let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i];
+  return Math.min(1, (s / buf.length) / 80);
+}
+
+/* ---------- 3D scene ---------- */
+let energy = 0;
+function initScene() {
+  if (!window.THREE) return;
+  const stage = $('stage');
+  const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  const GREEN = 0x2dff8a;
+  const root = new THREE.Group(); scene.add(root);
+
+  scene.add(new THREE.AmbientLight(0x99ffcc, 0.9));
+  const key = new THREE.DirectionalLight(0xbfffe0, 1.1); key.position.set(3, 4, 5); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x2dff8a, 0.9); rim.position.set(-4, -2, -3); scene.add(rim);
+
+  /* placeholder shown until /model.glb loads (or if there is none) */
+  const ph = new THREE.Group(); root.add(ph);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: GREEN, wireframe: true, transparent: true, opacity: .8 }));
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(.55, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x17b866, transparent: true, opacity: .45 }));
+  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.6, .015, 8, 128), new THREE.MeshBasicMaterial({ color: GREEN }));
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.0, .012, 8, 128), new THREE.MeshBasicMaterial({ color: 0x17b866 }));
+  ring2.rotation.x = Math.PI / 2.4;
+  const pg = new THREE.BufferGeometry(); const pos = [];
+  for (let i = 0; i < 350; i++) {
+    const r = 2.4 + Math.random() * 0.9, a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
+    pos.push(r * Math.sin(b) * Math.cos(a), r * Math.sin(b) * Math.sin(a), r * Math.cos(b));
+  }
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: GREEN, size: .03, transparent: true, opacity: .7 }));
+  ph.add(core, inner, ring1, ring2, pts);
+
+  /* your 3D model: upload it to the repo as model.glb */
+  let model = null, mixer = null; const mats = [];
+  if (THREE.GLTFLoader) {
+    new THREE.GLTFLoader().load('/model.glb', g => {
+      const obj = g.scene;
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+      obj.position.sub(ctr);
+      const wrap = new THREE.Group(); wrap.add(obj);
+      wrap.scale.setScalar(3.4 / Math.max(size.x, size.y, size.z, 0.0001));
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+          if (m.color) m.color.setHex(0x3fdc8a);   /* green hologram tint */
+          if (m.emissive) { m.emissive.setHex(0x2dff8a); m.emissiveIntensity = 0.05; mats.push(m); }
+          m.side = THREE.DoubleSide;
+        });
+      });
+      if (g.animations && g.animations.length) {
+        mixer = new THREE.AnimationMixer(obj);
+        g.animations.forEach(a => mixer.clipAction(a).play());
+      }
+      root.remove(ph); root.add(wrap); model = wrap;
+    }, undefined, () => {});
+  }
+
+  function fit() {
+    const r = stage.getBoundingClientRect();
+    const w = Math.max(1, r.width), h = Math.max(1, r.height);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.position.set(0, 0, w / h < 1 ? 7.6 : 6.2);
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(fit).observe(stage); fit();
+
+  const clock = new THREE.Clock(); let target = 0;
+  (function loop() {
+    requestAnimationFrame(loop);
+    const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+    if (state === 'speaking') target = level();
+    else if (state === 'listening') target = 0.35 + 0.15 * Math.sin(t * 6);
+    else if (state === 'thinking') target = 0.5 + 0.2 * Math.sin(t * 10);
+    else target = 0.08 + 0.05 * Math.sin(t * 1.5);
+    energy += (target - energy) * Math.min(1, dt * 10);
+
+    const spin = state === 'thinking' ? 2.4 : state === 'speaking' ? 1.1 : 0.4;
+    root.rotation.y += dt * spin * 0.6;
+    root.rotation.x = Math.sin(t * 0.4) * 0.12;
+    root.scale.setScalar(1 + energy * 0.22);
+
+    if (!model) {
+      core.rotation.x += dt * 0.3 * (1 + energy * 3);
+      ring1.rotation.z += dt * 0.6; ring2.rotation.y += dt * 0.8;
+      inner.material.opacity = 0.3 + energy * 0.65;
+      core.material.opacity = 0.55 + energy * 0.45;
+      pts.rotation.y -= dt * 0.05;
+    }
+    mats.forEach(m => { m.emissiveIntensity = 0.05 + energy * 1.1; });
+    if (mixer) mixer.update(dt);
+    renderer.render(scene, camera);
+  })();
+}
+try { initScene(); } catch (e) {}
+
+/* ---------- chat ---------- */
+const cap = $('cap');
+function addLine(cls, text) {
+  const d = document.createElement('div'); d.className = 'l ' + cls; d.textContent = text;
+  cap.appendChild(d);
+  while (cap.children.length > 2) cap.removeChild(cap.firstChild);
+  cap.scrollTop = cap.scrollHeight;
+}
+function greet() {
+  const h = new Date().getHours();
+  return (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', sir. How may I assist?';
+}
+addLine('bot', greet());
+
+function addFacts(facts) {
+  let added = false;
+  (facts || []).forEach(f => {
+    f = String(f).trim().slice(0, 200);
+    if (!f || memory.some(m => m.toLowerCase() === f.toLowerCase())) return;
+    memory.push(f); added = true;
+  });
+  if (memory.length > 40) memory = memory.slice(-40);
+  if (added) { store.set('stigma_memory', memory); flash('NOTED'); }
+}
+
+async function play(blob) {
+  const url = URL.createObjectURL(blob), a = new Audio(url); let src = null;
+  try {
+    ensureAudio();
+    if (actx) {
+      if (actx.state === 'suspended') await actx.resume();
+      src = actx.createMediaElementSource(a);
+      src.connect(analyser); analyser.connect(actx.destination);
+    }
+  } catch (e) {}
+  setState('speaking');
+  const done = () => { setState('idle'); URL.revokeObjectURL(url); try { src && src.disconnect(); } catch (e) {} };
+  a.onended = done; a.onerror = done;
+  try { await a.play(); } catch (e) { done(); }
+}
+
+function fail(msg) { addLine('bot', msg); setState('idle'); }
+
+async function send(text) {
+  ensureAudio(); if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  addLine('you', text); setState('thinking');
+  const voice = $('voice').checked;
+  let r = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      r = await fetch(voice ? '/converse' : '/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Password': pw },
+        body: JSON.stringify({ message: text, history: history.slice(-20), memory })
+      });
+    } catch (e) { return fail('I cannot reach the server, sir. It may be waking up. Do try again in a moment.'); }
+    if (r.status === 401) {
+      pw = prompt('Password?') || '';
+      try { localStorage.setItem('stigma_pw', pw); } catch (e) {}
+      continue;
+    }
+    break;
+  }
+  if (!r.ok) return fail('Error: ' + (await r.text()).slice(0, 300));
+
+  let reply = '', facts = [];
+  if (voice) {
+    reply = decodeURIComponent(r.headers.get('X-Reply') || '');
+    try { facts = JSON.parse(decodeURIComponent(r.headers.get('X-Remember') || '[]')); } catch (e) {}
+    const blob = await r.blob();
+    addLine('bot', reply);
+    play(blob);
+  } else {
+    const j = await r.json();
+    reply = j.reply; facts = j.remember || [];
+    addLine('bot', reply); setState('idle');
+  }
+  history.push({ role: 'user', content: text }, { role: 'assistant', content: reply });
+  history = history.slice(-40); store.set('stigma_history', history);
+  addFacts(facts);
+}
+
+$('f').onsubmit = e => {
+  e.preventDefault();
+  const v = $('t').value.trim(); if (!v) return;
+  $('t').value = ''; send(v);
+};
+
+/* ---------- microphone ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) $('mic').hidden = true;
+else $('mic').onclick = () => {
+  ensureAudio(); if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  const rec = new SR(); rec.lang = 'en-GB';
+  rec.onstart = () => setState('listening');
+  rec.onresult = ev => send(ev.results[0][0].transcript);
+  rec.onerror = () => { if (state === 'listening') setState('idle'); };
+  rec.onend = () => { if (state === 'listening') setState('idle'); };
+  try { rec.start(); } catch (e) {}
+};
+
+/* ---------- log and memory panels ---------- */
+function openPanel(title, build) {
+  $('ptitle').textContent = title;
+  const b = $('pbody'); b.innerHTML = ''; build(b);
+  $('panel').classList.add('open'); b.scrollTop = b.scrollHeight;
+}
+$('pclose').onclick = () => $('panel').classList.remove('open');
+$('logBtn').onclick = () => openPanel('LOG', b => {
+  if (!history.length) { b.textContent = 'Nothing yet, sir.'; return; }
+  history.forEach(h => {
+    const d = document.createElement('div');
+    d.className = 'l ' + (h.role === 'user' ? 'you' : 'bot'); d.textContent = h.content; b.appendChild(d);
+  });
+});
+function renderMemory(b) {
+  b.innerHTML = '';
+  if (!memory.length) b.textContent = 'I have nothing on file yet, sir.';
+  memory.forEach((m, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const s = document.createElement('span'); s.textContent = m;
+    const x = document.createElement('button'); x.className = 'btn alt'; x.type = 'button'; x.textContent = 'Forget';
+    x.onclick = () => { memory.splice(i, 1); store.set('stigma_memory', memory); renderMemory(b); };
+    row.append(s, x); b.appendChild(row);
+  });
+  if (memory.length || history.length) {
+    const all = document.createElement('button'); all.className = 'btn alt wide'; all.type = 'button';
+    all.textContent = 'Forget everything';
+    all.onclick = () => {
+      memory = []; history = [];
+      store.set('stigma_memory', memory); store.set('stigma_history', history);
+      renderMemory(b);
+    };
+    b.appendChild(all);
+  }
+}
+$('memBtn').onclick = () => openPanel('MEMORY', renderMemory);
+</script>
+</body>
+</html>

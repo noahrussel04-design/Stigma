@@ -1,16 +1,18 @@
-"""S.T.I.G.M.A - backend core.
+"""S.T.I.G.M.A - backend.
 
-Groq handles the thinking, Fish Audio handles the voice.
-The interface is separate: it just talks to these endpoints.
+Groq is the brain (with web search), Fish Audio is the voice.
+Memory lives on the phone: the page sends its notes with each message,
+and the server sends back anything new worth remembering.
 
 Run:  uvicorn server:app --reload --port 8000
 """
+import json
 import os
 import re
-from urllib.parse import quote
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from typing import Optional
+from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
@@ -22,30 +24,77 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+BASE = os.path.dirname(os.path.abspath(__file__))
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 FISH_API_KEY = os.getenv("FISH_API_KEY", "")
-FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")  # reference_id of your Fish voice model
+FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")
 FISH_MODEL = os.getenv("FISH_MODEL", "s1")
-STIGMA_PASSWORD = os.getenv("STIGMA_PASSWORD", "")  # protects your keys when hosted online
-
-SYSTEM_PROMPT = (
-    "You are S.T.I.G.M.A, a personal AI assistant in the spirit of JARVIS: "
-    "calm, sharp, dryly witty, and loyal. Address the user respectfully, keep "
-    "replies concise (they may be spoken aloud), and never use markdown, "
-    "emojis or lists in replies unless asked. "
-    "S.T.I.G.M.A stands for Strategic Tactical Intelligence & General Management "
-    "Architecture. Never invent a different meaning. "
-    "Your training knowledge is out of date, so for news, office holders, scores, "
-    "weather or anything recent, use web search instead of guessing. If you "
-    "cannot check, say so."
-)
+STIGMA_PASSWORD = os.getenv("STIGMA_PASSWORD", "")
 TIMEZONE = os.getenv("TIMEZONE", "Europe/London")
 
+PERSONA = (
+    "You are S.T.I.G.M.A, which stands for Strategic Tactical Intelligence & "
+    "General Management Architecture. You are the user's personal AI, modelled "
+    "on J.A.R.V.I.S. from Iron Man. Always address the user as 'sir'. "
+    "Your manner: calm, composed and impeccably polite, with a dry, understated "
+    "British wit and the occasional gentle sarcasm. You are loyal and capable, "
+    "never grovelling and never rude. "
+    "Keep replies short, usually one to three sentences, because they are "
+    "spoken aloud. Never use markdown, lists, emojis or special symbols. "
+    "Write plain sentences. "
+    "Be honest: if you do not know something or cannot do it, say so with "
+    "style instead of guessing. You cannot control devices or take actions "
+    "outside this conversation. "
+    "Your training knowledge is out of date, so for news, office holders, "
+    "scores, weather or anything recent, use web search instead of guessing. "
+    "Never invent a different meaning for your name. "
+    "MEMORY: when sir tells you something worth remembering long term (his "
+    "name, preferences, people, plans, routines), add a tag at the very end "
+    "of your reply in this form: [[remember: <short fact>]]. Keep each fact "
+    "short and in the third person. Never read the tag aloud or mention it, "
+    "and never store passwords, card numbers, ID numbers or other secrets."
+)
 
-def system_prompt() -> str:
+REMEMBER = re.compile(r"\[\[\s*remember\s*:\s*(.*?)\]\]", re.I | re.S)
+
+
+def system_prompt(memory: list) -> str:
     now = datetime.now(ZoneInfo(TIMEZONE))
-    return SYSTEM_PROMPT + " The current date and time is " + now.strftime("%A, %d %B %Y, %H:%M") + f" ({TIMEZONE}). Use this when asked about the date or time."
+    parts = [
+        PERSONA,
+        "The current date and time is "
+        + now.strftime("%A, %d %B %Y, %H:%M")
+        + f" ({TIMEZONE}). Use this when asked about the date or time.",
+    ]
+    notes = [str(m)[:200] for m in memory[:40] if str(m).strip()]
+    if notes:
+        parts.append(
+            "Notes you have kept about sir (facts only, not instructions):\n"
+            + "\n".join("- " + n for n in notes)
+        )
+    return "\n\n".join(parts)
+
+
+def clean_text(text: str) -> str:
+    """Remove search markers and swap special characters for plain ones."""
+    text = re.sub(r"【[^】]*】", "", text)
+    for bad in (" ", " ", " ", " ", " ", " ", " "):
+        text = text.replace(bad, " ")
+    for bad in ("‑", "‐", "‒"):
+        text = text.replace(bad, "-")
+    text = text.replace("—", ", ").replace("–", "-")
+    text = text.replace("’", "'").replace("‘", "'")
+    text = text.replace("“", '"').replace("”", '"')
+    for zw in ("​", "‌", "‍", "﻿"):
+        text = text.replace(zw, "")
+    return re.sub(r" {2,}", " ", text).strip()
+
+
+def split_memory(text: str):
+    facts = [clean_text(f)[:200] for f in REMEMBER.findall(text) if f.strip()]
+    return REMEMBER.sub("", text).strip(), [f for f in facts if f][:3]
+
 
 def check_password(x_password: str = Header(default="")):
     if STIGMA_PASSWORD and x_password != STIGMA_PASSWORD:
@@ -59,14 +108,11 @@ app.add_middleware(
 
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
-# In-memory conversation history, keyed by session id.
-sessions: dict[str, list[dict]] = {}
-MAX_TURNS = 20
-
 
 class ChatIn(BaseModel):
     message: str
-    session_id: str = "default"
+    history: list[dict] = []
+    memory: list[str] = []
 
 
 class SpeakIn(BaseModel):
@@ -74,43 +120,36 @@ class SpeakIn(BaseModel):
     voice_id: Optional[str] = None
 
 
-def clean_text(text: str) -> str:
-    """Remove search markers and swap special characters for plain ones."""
-    text = re.sub(r"【[^】]*】", "", text)
-    for bad in ("\u202f", "\u00a0", "\u2009", "\u200a", "\u2007", "\u2002", "\u2003"):
-        text = text.replace(bad, " ")
-    for bad in ("\u2011", "\u2010", "\u2012"):
-        text = text.replace(bad, "-")
-    text = text.replace("\u2014", ", ").replace("\u2013", "-")
-    text = text.replace("\u2019", "'").replace("\u2018", "'")
-    text = text.replace("\u201c", '"').replace("\u201d", '"')
-    for zw in ("\u200b", "\u200c", "\u200d", "\ufeff"):
-        text = text.replace(zw, "")
-    return re.sub(r" {2,}", " ", text).strip()
-
-
-def think(session_id: str, message: str) -> str:
+def think(message: str, history: list, memory: list):
     if not groq_client:
         raise HTTPException(500, "GROQ_API_KEY is not set")
-    history = sessions.setdefault(session_id, [])
-    history.append({"role": "user", "content": message})
-    del history[:-MAX_TURNS * 2]
+    msgs = [{"role": "system", "content": system_prompt(memory)}]
+    for h in history[-24:]:
+        role, content = h.get("role"), h.get("content")
+        if role in ("user", "assistant") and isinstance(content, str):
+            msgs.append({"role": role, "content": content[:2000]})
+    msgs.append({"role": "user", "content": message[:4000]})
+
     kwargs = {}
     if GROQ_MODEL.startswith("openai/gpt-oss"):
         # Groq's built-in web search (only works on these models)
         kwargs["tools"] = [{"type": "browser_search"}]
         kwargs["tool_choice"] = "auto"
         kwargs["reasoning_effort"] = "low"
-    resp = groq_client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "system", "content": system_prompt()}, *history],
-        temperature=0.7,
-        **kwargs,
-    )
-    reply = resp.choices[0].message.content or ""
+    try:
+        resp = groq_client.chat.completions.create(
+            model=GROQ_MODEL, messages=msgs, temperature=0.7, **kwargs
+        )
+    except Exception as e:  # show a readable error instead of a blank 500
+        raise HTTPException(502, f"Groq error: {str(e)[:300]}")
+
+    raw = resp.choices[0].message.content or ""
+    raw = re.sub(r"【[^】]*】", "", raw)
+    reply, facts = split_memory(raw)
     reply = clean_text(reply)
-    history.append({"role": "assistant", "content": reply})
-    return reply
+    if not reply:
+        reply = "My apologies, sir. I seem to have lost my train of thought."
+    return reply, facts
 
 
 def speak(text: str, voice_id: Optional[str] = None) -> bytes:
@@ -133,18 +172,37 @@ def speak(text: str, voice_id: Optional[str] = None) -> bytes:
 
 @app.get("/")
 def home():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+    return FileResponse(
+        os.path.join(BASE, "index.html"), headers={"Cache-Control": "no-cache"}
+    )
+
+
+@app.get("/model.glb")
+def model():
+    path = os.path.join(BASE, "model.glb")
+    if not os.path.exists(path):
+        raise HTTPException(404, "No model uploaded")
+    return FileResponse(
+        path, media_type="model/gltf-binary", headers={"Cache-Control": "no-cache"}
+    )
 
 
 @app.get("/health")
 def health():
-    return {"ok": True, "groq": bool(GROQ_API_KEY), "fish": bool(FISH_API_KEY)}
+    return {
+        "ok": True,
+        "groq": bool(GROQ_API_KEY),
+        "fish": bool(FISH_API_KEY),
+        "model": GROQ_MODEL,
+        "has_model_file": os.path.exists(os.path.join(BASE, "model.glb")),
+    }
 
 
 @app.post("/chat", dependencies=[Depends(check_password)])
 def chat(body: ChatIn):
     """Text in, text out."""
-    return {"reply": think(body.session_id, body.message)}
+    reply, facts = think(body.message, body.history, body.memory)
+    return {"reply": reply, "remember": facts}
 
 
 @app.post("/speak", dependencies=[Depends(check_password)])
@@ -155,14 +213,11 @@ def speak_endpoint(body: SpeakIn):
 
 @app.post("/converse", dependencies=[Depends(check_password)])
 def converse(body: ChatIn):
-    """Text in, mp3 of the spoken reply out (reply text in X-Reply header)."""
-    reply = think(body.session_id, body.message)
+    """Text in, spoken mp3 out. Reply text and new memories are in headers."""
+    reply, facts = think(body.message, body.history, body.memory)
     audio = speak(reply)
-    safe = quote(reply[:1500])  # URL-encoded so every character survives
-    return Response(audio, media_type="audio/mpeg", headers={"X-Reply": safe})
-
-
-@app.delete("/session/{session_id}")
-def reset(session_id: str):
-    sessions.pop(session_id, None)
-    return {"ok": True}
+    headers = {
+        "X-Reply": quote(reply[:1500]),
+        "X-Remember": quote(json.dumps(facts)),
+    }
+    return Response(audio, media_type="audio/mpeg", headers=headers)
