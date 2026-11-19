@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#020a06">
+<title>S.T.I.G.M.A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020a06; --panel: #06160d; --line: #0e3a25;
+    --accent: #2dff8a; --accent2: #17b866; --text: #d6f5e3; --dim: #6aa886;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { overflow: hidden; }
+  button, input, textarea { font-family: inherit; }
+  #app { height: 100dvh; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px); }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+  h1 { margin: 0; font: 700 15px Orbitron, system-ui, sans-serif; letter-spacing: .32em; color: var(--accent);
+    text-shadow: 0 0 12px rgba(45,255,138,.5); }
+  .tools { display: flex; gap: 6px; }
+  .chip { font-size: 13px; color: var(--dim); background: transparent; border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+  .chip:active { background: rgba(45,255,138,.12); }
+
+  #stage { position: relative; flex: 1; min-height: 190px; }
+  #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #status { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center;
+    font: 500 11px Orbitron, system-ui, sans-serif; letter-spacing: .3em; color: var(--accent);
+    text-shadow: 0 0 10px rgba(45,255,138,.6); pointer-events: none; }
+
+  /* pop-ups */
+  #pops { position: absolute; left: 10px; right: 10px; top: 6px; bottom: 26px; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; z-index: 3; pointer-events: none; overflow-y: auto; }
+  .pop { pointer-events: auto; width: min(100%, 390px); flex: none; background: rgba(3,16,9,.94); border: 1px solid var(--accent2);
+    border-radius: 14px; padding: 10px 12px 12px; box-shadow: 0 0 26px rgba(45,255,138,.18);
+    animation: popin .22s ease-out; transition: opacity .25s, transform .25s; }
+  .pop.out { opacity: 0; transform: translateY(-6px); }
+  @keyframes popin { from { opacity: 0; transform: translateY(-8px) scale(.97); } to { opacity: 1; transform: none; } }
+  .pophead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .pophead span { font: 700 11px Orbitron, system-ui, sans-serif; letter-spacing: .22em; color: var(--accent); }
+  .pophead button { background: none; border: 0; color: var(--dim); font-size: 20px; line-height: 1; padding: 0 4px; cursor: pointer; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
+    animation: sp .8s linear infinite; display: inline-block; vertical-align: -2px; margin-right: 8px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .dots { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); transition: background .15s; }
+  .dot.hit { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.miss { background: #2a5a40; }
+  .big { font: 700 26px Orbitron, system-ui, sans-serif; color: var(--accent); line-height: 1.15; }
+  .sub { font-size: 13px; color: var(--dim); overflow-wrap: anywhere; }
+  .lines { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+  .lines b { color: var(--accent); font-weight: 600; }
+  .flex { display: flex; gap: 14px; align-items: center; }
+  .flex > * { min-width: 0; }
+  .barrow { display: grid; grid-template-columns: 64px 1fr 48px; gap: 8px; align-items: center; font-size: 13px; margin-top: 6px; }
+  .barrow em { font-style: normal; color: var(--dim); text-align: right; }
+  .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent2); }
+  .src { display: block; padding: 8px 0; border-top: 1px solid var(--line); color: var(--text); text-decoration: none; }
+  .src b { font-weight: 600; display: block; font-size: 14px; overflow-wrap: anywhere; }
+  .src small { color: var(--dim); overflow-wrap: anywhere; }
+
+  /* conversation */
+  #cap { max-height: 28vh; overflow-y: auto; padding: 4px 16px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .l { line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .you { color: var(--dim); font-size: 14px; }
+  .bot { color: var(--text); font-size: 17px; text-shadow: 0 0 14px rgba(45,255,138,.18); }
+  #actions { padding: 0 16px; display: flex; flex-direction: column; gap: 8px; max-height: 40vh; overflow-y: auto; }
+  #actions:empty { display: none; }
+  form { display: flex; gap: 8px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+  input[type=text] { flex: 1; min-width: 0; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font-size: 16px; outline: none; }
+  input[type=text]:focus { border-color: var(--accent2); box-shadow: 0 0 0 2px rgba(45,255,138,.15); }
+  .btn { border: 1px solid var(--accent2); background: rgba(23,184,102,.14); color: var(--accent);
+    border-radius: 12px; padding: 0 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn.alt { border-color: var(--line); color: var(--dim); background: transparent; padding: 9px 13px; font-weight: 500; }
+  .btn:active { background: rgba(45,255,138,.25); }
+  .btn:disabled { opacity: .5; }
+
+  /* authorise cards */
+  .card { border: 1px solid var(--accent2); background: rgba(6,22,13,.94); border-radius: 12px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px; box-shadow: 0 0 18px rgba(45,255,138,.14); }
+  .card h3 { margin: 0; font: 700 11px Orbitron, system-ui, sans-serif; letter-spacing: .22em; color: var(--accent); }
+  .card label, .pform label { font-size: 11px; color: var(--dim); letter-spacing: .12em; display: flex; flex-direction: column; gap: 3px; }
+  .card input, .card textarea, .pform input { flex: none; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font: 15px system-ui, sans-serif; letter-spacing: 0; outline: none; }
+  .card textarea { min-height: 76px; resize: vertical; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .card .btns .btn { padding: 10px 14px; }
+  .card .msg { font-size: 13px; color: var(--dim); overflow-wrap: anywhere; }
+
+  /* panels */
+  #panel { position: fixed; inset: 0; background: rgba(2,10,6,.98); display: none; flex-direction: column;
+    z-index: 5; max-width: 720px; margin: 0 auto; padding-top: env(safe-area-inset-top, 0px); }
+  #panel.open { display: flex; }
+  #phead { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; gap: 8px; }
+  #ptitle { font: 700 13px Orbitron, system-ui, sans-serif; letter-spacing: .3em; color: var(--accent); }
+  #pbody { flex: 1; overflow-y: auto; padding: 4px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .row > span, .row > div { min-width: 0; overflow-wrap: anywhere; }
+  .row small { display: block; color: var(--dim); font-size: 12px; }
+  .row b { color: var(--accent); font-weight: 600; text-align: right; }
+  .row input[type=checkbox] { accent-color: var(--accent); width: 22px; height: 22px; flex: none; }
+  .tap { cursor: pointer; }
+  .wide { align-self: stretch; padding: 12px; text-align: center; }
+  .pform { display: grid; gap: 8px; margin-top: 6px; }
+  .pform .btn { padding: 12px; }
+  .bub { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .bub.me { background: rgba(23,184,102,.08); }
+  .bub small { color: var(--dim); font-size: 11px; letter-spacing: .12em; }
+  .bub p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #search { width: 100%; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .pop, .spin { animation: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>S.T.I.G.M.A</h1>
+    <div class="tools">
+      <button class="chip" id="chatsBtn" type="button">Chats</button>
+      <button class="chip" id="newBtn" type="button">New</button>
+      <button class="chip" id="menuBtn" type="button">Menu</button>
+    </div>
+  </header>
+  <div id="stage"><canvas id="c"></canvas><div id="pops"></div><div id="status">ONLINE</div></div>
+  <div id="cap"></div>
+  <div id="actions"></div>
+  <form id="f">
+    <button type="button" class="btn alt" id="mic">Mic</button>
+    <input type="text" id="t" autocomplete="off" enterkeyhint="send" placeholder="Talk to STIGMA">
+    <button class="btn">Send</button>
+  </form>
+</div>
+
+<div id="panel">
+  <div id="phead"><div id="ptitle"></div><button class="btn alt" id="pclose" type="button">Close</button></div>
+  <div id="pbody"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
+const S = Object.assign({ voice: true, hf: false, loc: false }, store.get('stigma_settings', {}));
+function setS(k, v) { S[k] = v; store.set('stigma_settings', S); }
+let memory = store.get('stigma_memory', []);
+let contacts = store.get('stigma_contacts', []);
+let timers = store.get('stigma_timers', []);
+let loc = store.get('stigma_loc', null);
+let chats = store.get('stigma_chats', []);
+let curId = store.get('stigma_cur', null);
+let pw = ''; try { pw = localStorage.getItem('stigma_pw') || ''; } catch (e) {}
+let emailDirect = false, lastReply = '', busy = false;
+let awakeUntil = 0, ignoreUntil = 0, hfRunning = false, hfRec = null, wakeLock = null;
+
+/* one-off: bring over a chat history saved by the older version */
+(function migrate() {
+  const old = store.get('stigma_history', null);
+  if (old && old.length && !chats.length) {
+    chats = [{ id: 'old', title: 'Earlier conversation', created: Date.now(), updated: Date.now(),
+      messages: old.map(m => ({ role: m.role, content: m.content, t: Date.now() })) }];
+    store.set('stigma_chats', chats);
+  }
+  try { localStorage.removeItem('stigma_history'); } catch (e) {}
+})();
+
+/* ---------- state ---------- */
+let state = 'idle', flashTimer = null;
+const LABEL = { idle: 'ONLINE', listening: 'LISTENING', thinking: 'PROCESSING', speaking: 'SPEAKING' };
+function nextTimer() { let n = null; timers.forEach(t => { if (n === null || t.at < n) n = t.at; }); return n; }
+function statusText() {
+  let t = LABEL[state]; const n = nextTimer();
+  if (n !== null && state === 'idle') {
+    const s = Math.max(0, Math.round((n - Date.now()) / 1000)), h = Math.floor(s / 3600), p = x => String(x).padStart(2, '0');
+    t += '  |  TIMER ' + (h ? h + ':' : '') + p(Math.floor(s % 3600 / 60)) + ':' + p(s % 60);
+  }
+  return t;
+}
+function setState(s) {
+  const prev = state; state = s;
+  if (!flashTimer) $('status').textContent = statusText();
+  if (s === 'idle' && prev !== 'idle' && prev !== 'listening') {
+    ignoreUntil = Date.now() + 1200;
+    if (S.hf) awakeUntil = Date.now() + 6000;
+  }
+}
+function flash(msg) {
+  $('status').textContent = msg; clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { flashTimer = null; $('status').textContent = statusText(); }, 2200);
+}
+setInterval(() => { if (!flashTimer) $('status').textContent = statusText(); }, 1000);
+
+/* ---------- audio ---------- */
+let actx = null, analyser = null, buf = null;
+function ensureAudio() {
+  if (actx) return;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = actx.createAnalyser(); analyser.fftSize = 256;
+    buf = new Uint8Array(analyser.frequencyBinCount);
+  } catch (e) { actx = null; analyser = null; }
+}
+function level() {
+  if (!analyser) return 0.4 + 0.3 * Math.sin(performance.now() / 90);
+  analyser.getByteFrequencyData(buf);
+  let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i];
+  return Math.min(1, (s / buf.length) / 80);
+}
+function beep(freq, dur, vol) {
+  ensureAudio(); if (!actx) return;
+  try {
+    const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + dur);
+  } catch (e) {}
+}
+
+/* ---------- 3D scene ---------- */
+let energy = 0, modelLoaded = false;
+function initScene() {
+  if (!window.THREE) return;
+  const stage = $('stage');
+  const renderer = new THREE.WebGLRenderer({ canvas: $('c'), antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  const GREEN = 0x2dff8a;
+  const root = new THREE.Group(); scene.add(root);
+  scene.add(new THREE.AmbientLight(0x99ffcc, 0.9));
+  const key = new THREE.DirectionalLight(0xbfffe0, 1.1); key.position.set(3, 4, 5); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x2dff8a, 0.9); rim.position.set(-4, -2, -3); scene.add(rim);
+
+  const ph = new THREE.Group(); root.add(ph);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: GREEN, wireframe: true, transparent: true, opacity: .8 }));
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(.55, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0x17b866, transparent: true, opacity: .45 }));
+  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.6, .015, 8, 128), new THREE.MeshBasicMaterial({ color: GREEN }));
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.0, .012, 8, 128), new THREE.MeshBasicMaterial({ color: 0x17b866 }));
+  ring2.rotation.x = Math.PI / 2.4;
+  const pg = new THREE.BufferGeometry(); const pos = [];
+  for (let i = 0; i < 350; i++) {
+    const r = 2.4 + Math.random() * 0.9, a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
+    pos.push(r * Math.sin(b) * Math.cos(a), r * Math.sin(b) * Math.sin(a), r * Math.cos(b));
+  }
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: GREEN, size: .03, transparent: true, opacity: .7 }));
+  ph.add(core, inner, ring1, ring2, pts);
+
+  let model = null, mixer = null; const mats = [];
+  if (THREE.GLTFLoader) {
+    new THREE.GLTFLoader().load('/model.glb', g => {
+      const obj = g.scene;
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+      obj.position.sub(ctr);
+      const wrap = new THREE.Group(); wrap.add(obj);
+      wrap.scale.setScalar(3.4 / Math.max(size.x, size.y, size.z, 0.0001));
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+          if (m.color) m.color.setHex(0x3fdc8a);
+          if (m.emissive) { m.emissive.setHex(0x2dff8a); m.emissiveIntensity = 0.05; mats.push(m); }
+          m.side = THREE.DoubleSide;
+        });
+      });
+      if (g.animations && g.animations.length) {
+        mixer = new THREE.AnimationMixer(obj);
+        g.animations.forEach(a => mixer.clipAction(a).play());
+      }
+      root.remove(ph); root.add(wrap); model = wrap; modelLoaded = true;
+    }, undefined, () => {});
+  }
+
+  function fit() {
+    const r = stage.getBoundingClientRect();
+    const w = Math.max(1, r.width), h = Math.max(1, r.height);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.position.set(0, 0, w / h < 1 ? 7.6 : 6.2);
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(fit).observe(stage); fit();
+
+  const clock = new THREE.Clock(); let target = 0;
+  (function loop() {
+    requestAnimationFrame(loop);
+    const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+    if (state === 'speaking') target = level();
+    else if (state === 'listening') target = 0.35 + 0.15 * Math.sin(t * 6);
+    else if (state === 'thinking') target = 0.5 + 0.2 * Math.sin(t * 10);
+    else target = 0.08 + 0.05 * Math.sin(t * 1.5);
+    energy += (target - energy) * Math.min(1, dt * 10);
+    const spin = state === 'thinking' ? 2.4 : state === 'speaking' ? 1.1 : 0.4;
+    root.rotation.y += dt * spin * 0.6;
+    root.rotation.x = Math.sin(t * 0.4) * 0.12;
+    root.scale.setScalar(1 + energy * 0.22);
+    if (!model) {
+      core.rotation.x += dt * 0.3 * (1 + energy * 3);
+      ring1.rotation.z += dt * 0.6; ring2.rotation.y += dt * 0.8;
+      inner.material.opacity = 0.3 + energy * 0.65;
+      core.material.opacity = 0.55 + energy * 0.45;
+      pts.rotation.y -= dt * 0.05;
+    }
+    mats.forEach(m => { m.emissiveIntensity = 0.05 + energy * 1.1; });
+    if (mixer) mixer.update(dt);
+    renderer.render(scene, camera);
+  })();
+}
+try { initScene(); } catch (e) {}
+
+/* ---------- pop-ups ---------- */
+const popsEl = $('pops'), pops = {};
+function removePopNow(id) {
+  const p = pops[id]; if (!p) return;
+  delete pops[id]; clearInterval(p.iv); clearTimeout(p.to); p.el.remove();
+}
+function closePop(id) {
+  const p = pops[id]; if (!p) return;
+  delete pops[id]; clearInterval(p.iv); clearTimeout(p.to);
+  p.el.classList.add('out'); setTimeout(() => p.el.remove(), 280);
+}
+function pop(id, title, build, opts) {
+  opts = opts || {}; removePopNow(id);
+  const el = document.createElement('div'); el.className = 'pop';
+  const head = document.createElement('div'); head.className = 'pophead';
+  const t = document.createElement('span'); t.textContent = title;
+  const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Close');
+  x.onclick = () => closePop(id); head.append(t, x);
+  const body = document.createElement('div'); el.append(head, body);
+  const p = { el, body, iv: null, to: null, life: opts.life || 'manual', secs: opts.secs || 10, scheduled: false };
+  pops[id] = p; build(body, p); popsEl.appendChild(el);
+  while (Object.keys(pops).length > 3) { const oldest = Object.keys(pops)[0]; removePopNow(oldest); }
+  return p;
+}
+function speechDone() {
+  Object.keys(pops).forEach(id => {
+    const p = pops[id];
+    if (p.life === 'speech') closePop(id);
+    else if (p.life === 'timed' && !p.scheduled) { p.scheduled = true; p.to = setTimeout(() => closePop(id), p.secs * 1000); }
+  });
+}
+function endSpeechLater(text) { setTimeout(speechDone, 1500 + String(text || '').length * 35); }
+function spinnerBody(b, text) { const d = document.createElement('div'); d.className = 'sub'; const s = document.createElement('span'); s.className = 'spin'; d.append(s, document.createTextNode(text)); b.appendChild(d); }
+
+/* ---------- sun, moon and time ---------- */
+const rad = Math.PI / 180, dayMs = 86400000, J1970 = 2440588, J2000 = 2451545, EPS = rad * 23.4397;
+const toJulian = d => d.valueOf() / dayMs - 0.5 + J1970;
+const fromJulian = j => new Date((j + 0.5 - J1970) * dayMs);
+const toDays = d => toJulian(d) - J2000;
+const rightAscension = (l, b) => Math.atan2(Math.sin(l) * Math.cos(EPS) - Math.tan(b) * Math.sin(EPS), Math.cos(l));
+const declination = (l, b) => Math.asin(Math.sin(b) * Math.cos(EPS) + Math.cos(b) * Math.sin(EPS) * Math.sin(l));
+const azimuthOf = (H, phi, dec) => Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(dec) * Math.cos(phi));
+const altitudeOf = (H, phi, dec) => Math.asin(Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(H));
+const siderealTime = (d, lw) => rad * (280.16 + 360.9856235 * d) - lw;
+function astroRefraction(h) { if (h < 0) h = 0; return 0.0002967 / Math.tan(h + 0.00312536 / (h + 0.08901179)); }
+const solarMeanAnomaly = d => rad * (357.5291 + 0.98560028 * d);
+function eclipticLongitude(M) {
+  const C = rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+  return M + C + rad * 102.9372 + Math.PI;
+}
+function sunCoords(d) { const M = solarMeanAnomaly(d), L = eclipticLongitude(M); return { dec: declination(L, 0), ra: rightAscension(L, 0) }; }
+function sunPosition(date, lat, lng) {
+  const lw = rad * -lng, phi = rad * lat, d = toDays(date), c = sunCoords(d), H = siderealTime(d, lw) - c.ra;
+  return { az: azimuthOf(H, phi, c.dec), alt: altitudeOf(H, phi, c.dec) };
+}
+function sunTimes(date, lat, lng) {
+  const J0 = 0.0009, lw = rad * -lng, phi = rad * lat, d = toDays(date);
+  const n = Math.round(d - J0 - lw / (2 * Math.PI)), ds = J0 + lw / (2 * Math.PI) + n;
+  const M = solarMeanAnomaly(ds), L = eclipticLongitude(M), dec = declination(L, 0);
+  const Jnoon = J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+  const w = Math.acos((Math.sin(-0.833 * rad) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec)));
+  if (isNaN(w)) return { noon: fromJulian(Jnoon), rise: null, set: null };
+  const a = J0 + (w + lw) / (2 * Math.PI) + n, Jset = J2000 + a + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+  return { noon: fromJulian(Jnoon), rise: fromJulian(Jnoon - (Jset - Jnoon)), set: fromJulian(Jset) };
+}
+function moonCoords(d) {
+  const L = rad * (218.316 + 13.176396 * d), M = rad * (134.963 + 13.064993 * d), F = rad * (93.272 + 13.229350 * d);
+  const l = L + rad * 6.289 * Math.sin(M), b = rad * 5.128 * Math.sin(F);
+  return { ra: rightAscension(l, b), dec: declination(l, b), dist: 385001 - 20905 * Math.cos(M) };
+}
+function moonPosition(date, lat, lng) {
+  const lw = rad * -lng, phi = rad * lat, d = toDays(date), c = moonCoords(d), H = siderealTime(d, lw) - c.ra;
+  let h = altitudeOf(H, phi, c.dec); h += astroRefraction(h);
+  return { az: azimuthOf(H, phi, c.dec), alt: h };
+}
+function moonIllum(date) {
+  const d = toDays(date), s = sunCoords(d), m = moonCoords(d), sdist = 149598000;
+  const phi = Math.acos(Math.sin(s.dec) * Math.sin(m.dec) + Math.cos(s.dec) * Math.cos(m.dec) * Math.cos(s.ra - m.ra));
+  const inc = Math.atan2(sdist * Math.sin(phi), m.dist - sdist * Math.cos(phi));
+  const angle = Math.atan2(Math.cos(s.dec) * Math.sin(s.ra - m.ra),
+    Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
+  return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + 0.5 * inc * (angle < 0 ? -1 : 1) / Math.PI };
+}
+function moonTimes(date, lat, lng) {
+  const t = new Date(date); t.setHours(0, 0, 0, 0);
+  const later = h => new Date(t.valueOf() + h * dayMs / 24), hc = 0.133 * rad;
+  let h0 = moonPosition(t, lat, lng).alt - hc, rise, set;
+  for (let i = 1; i <= 24; i += 2) {
+    const h1 = moonPosition(later(i), lat, lng).alt - hc, h2 = moonPosition(later(i + 1), lat, lng).alt - hc;
+    const a = (h0 + h2) / 2 - h1, b = (h2 - h0) / 2, xe = -b / (2 * a), ye = (a * xe + b) * xe + h1, dd = b * b - 4 * a * h1;
+    let roots = 0, x1, x2;
+    if (dd >= 0) {
+      const dx = Math.sqrt(dd) / (Math.abs(a) * 2); x1 = xe - dx; x2 = xe + dx;
+      if (Math.abs(x1) <= 1) roots++; if (Math.abs(x2) <= 1) roots++; if (x1 < -1) x1 = x2;
+    }
+    if (roots === 1) { if (h0 < 0) rise = i + x1; else set = i + x1; }
+    else if (roots === 2) { rise = i + (ye < 0 ? x2 : x1); set = i + (ye < 0 ? x1 : x2); }
+    if (rise && set) break; h0 = h2;
+  }
+  return { rise: rise ? later(rise) : null, set: set ? later(set) : null };
+}
+const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const compass = az => (az / rad + 180 + 360) % 360;   /* from north, clockwise */
+const dirName = c => DIRS[Math.round(c / 22.5) % 16];
+function phaseName(p) {
+  const n = [[0.03, 'New moon'], [0.22, 'Waxing crescent'], [0.28, 'First quarter'], [0.47, 'Waxing gibbous'],
+    [0.53, 'Full moon'], [0.72, 'Waning gibbous'], [0.78, 'Last quarter'], [0.97, 'Waning crescent'], [1.01, 'New moon']];
+  return n.find(x => p < x[0])[1];
+}
+const hm = d => d ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'none today';
+function where() {
+  return (S.loc && loc) ? { lat: loc.lat, lon: loc.lon, note: 'Your location' }
+    : { lat: 51.5074, lon: -0.1278, note: 'London. Turn on Location in Menu for yours.' };
+}
+function skyChart(items) {
+  const R = 52, cx = 62, cy = 62;
+  let s = '<svg width="124" height="124" viewBox="0 0 124 124" style="flex:none">'
+    + '<circle cx="62" cy="62" r="52" fill="none" stroke="#0e3a25" stroke-width="1.5"/>'
+    + '<circle cx="62" cy="62" r="26" fill="none" stroke="#0e3a25" stroke-width="1" stroke-dasharray="2 4"/>'
+    + '<g fill="#6aa886" font-size="9" font-family="system-ui" text-anchor="middle">'
+    + '<text x="62" y="9">N</text><text x="62" y="120">S</text><text x="117" y="65">E</text><text x="8" y="65">W</text></g>';
+  items.forEach(it => {
+    const c = compass(it.az) * rad, below = it.alt < 0, r = below ? R + 6 : (90 - it.alt / rad) / 90 * R;
+    const x = cx + r * Math.sin(c), y = cy - r * Math.cos(c);
+    s += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="6" fill="' + it.color + '"' + (below ? ' opacity=".35"' : '') + '/>';
+  });
+  return s + '</svg>';
+}
+function linesBox(rows) {
+  const d = document.createElement('div'); d.className = 'lines';
+  rows.forEach(r => { const l = document.createElement('div'); l.append(document.createTextNode(r[0] + ' ')); const b = document.createElement('b'); b.textContent = r[1]; l.appendChild(b); d.appendChild(l); });
+  return d;
+}
+function showTime() {
+  pop('time', 'TODAY', (b, p) => {
+    const C = 2 * Math.PI * 34;
+    b.innerHTML = '<div class="flex"><svg width="86" height="86" viewBox="0 0 86 86" style="flex:none">'
+      + '<circle cx="43" cy="43" r="34" fill="none" stroke="#0e3a25" stroke-width="7"/>'
+      + '<circle class="ring" cx="43" cy="43" r="34" fill="none" stroke="#2dff8a" stroke-width="7" stroke-linecap="round" '
+      + 'transform="rotate(-90 43 43)" stroke-dasharray="' + C + '" stroke-dashoffset="' + C + '"/></svg>'
+      + '<div><div class="big"></div><div class="sub">of the day done</div><div class="sub clk"></div></div></div>';
+    const ring = b.querySelector('.ring'), big = b.querySelector('.big'), clk = b.querySelector('.clk');
+    const upd = () => {
+      const n = new Date(), secs = n.getHours() * 3600 + n.getMinutes() * 60 + n.getSeconds(), pct = secs / 864;
+      const left = 86400 - secs, p2 = x => String(x).padStart(2, '0');
+      ring.setAttribute('stroke-dashoffset', (C * (1 - pct / 100)).toFixed(1));
+      big.textContent = pct.toFixed(1) + '%';
+      clk.textContent = p2(n.getHours()) + ':' + p2(n.getMinutes()) + ':' + p2(n.getSeconds()) + ' | ' + Math.floor(left / 3600) + 'h ' + Math.floor(left % 3600 / 60) + 'm left';
+    };
+    upd(); p.iv = setInterval(upd, 1000);
+  }, { life: 'speech' });
+}
+function showSun() {
+  const w = where(), now = new Date(), pos = sunPosition(now, w.lat, w.lon), tm = sunTimes(now, w.lat, w.lon);
+  const c = compass(pos.az), alt = pos.alt / rad;
+  pop('sun', 'THE SUN', b => {
+    const f = document.createElement('div'); f.className = 'flex'; f.innerHTML = skyChart([{ az: pos.az, alt: pos.alt, color: '#d8ff5a' }]);
+    const rows = [['Height', alt.toFixed(1) + ' deg ' + (alt < 0 ? '(below the horizon)' : 'above the horizon')],
+      ['Direction', dirName(c) + ' ' + Math.round(c) + ' deg'], ['Sunrise', hm(tm.rise)], ['Sunset', hm(tm.set)]];
+    if (tm.rise && tm.set) { const m = Math.round((tm.set - tm.rise) / 60000); rows.push(['Daylight', Math.floor(m / 60) + 'h ' + (m % 60) + 'm']); }
+    const side = document.createElement('div'); side.appendChild(linesBox(rows));
+    const n = document.createElement('div'); n.className = 'sub'; n.textContent = w.note; side.appendChild(n);
+    f.appendChild(side); b.appendChild(f);
+  }, { life: 'timed', secs: 10 });
+}
+function moonGlyph(frac, phase) {
+  const r = 30, cx = 34, cy = 34;
+  let lit = '';
+  if (frac > 0.985) lit = '<circle cx="34" cy="34" r="30" fill="#d6f5e3"/>';
+  else if (frac > 0.015) {
+    const waxing = phase < 0.5, rx = (r * Math.abs(2 * frac - 1)).toFixed(1), s = waxing ? 1 : 0;
+    const t = waxing ? (frac < 0.5 ? 0 : 1) : (frac < 0.5 ? 1 : 0);
+    lit = '<path d="M ' + cx + ' ' + (cy - r) + ' A ' + r + ' ' + r + ' 0 0 ' + s + ' ' + cx + ' ' + (cy + r)
+      + ' A ' + rx + ' ' + r + ' 0 0 ' + t + ' ' + cx + ' ' + (cy - r) + ' Z" fill="#d6f5e3"/>';
+  }
+  return '<svg width="68" height="68" viewBox="0 0 68 68" style="flex:none"><circle cx="34" cy="34" r="30" fill="#0b2a1a" stroke="#0e3a25"/>' + lit + '</svg>';
+}
+function showMoon() {
+  const w = where(), now = new Date(), pos = moonPosition(now, w.lat, w.lon), il = moonIllum(now), tm = moonTimes(now, w.lat, w.lon);
+  const c = compass(pos.az), alt = pos.alt / rad;
+  pop('moon', 'THE MOON', b => {
+    const f = document.createElement('div'); f.className = 'flex';
+    const left = document.createElement('div'); left.innerHTML = skyChart([{ az: pos.az, alt: pos.alt, color: '#d6f5e3' }]);
+    const side = document.createElement('div');
+    const top = document.createElement('div'); top.className = 'flex'; top.style.marginBottom = '6px'; top.innerHTML = moonGlyph(il.fraction, il.phase);
+    const nm = document.createElement('div'); const bg = document.createElement('div'); bg.className = 'big'; bg.style.fontSize = '17px'; bg.textContent = phaseName(il.phase);
+    const sb = document.createElement('div'); sb.className = 'sub'; sb.textContent = Math.round(il.fraction * 100) + '% lit'; nm.append(bg, sb); top.appendChild(nm);
+    side.append(top, linesBox([['Height', alt.toFixed(1) + ' deg' + (alt < 0 ? ' (below)' : '')], ['Direction', dirName(c) + ' ' + Math.round(c) + ' deg'],
+      ['Moonrise', hm(tm.rise)], ['Moonset', hm(tm.set)]]));
+    const n = document.createElement('div'); n.className = 'sub'; n.textContent = w.note; side.appendChild(n);
+    f.append(left, side); b.appendChild(f);
+  }, { life: 'timed', secs: 10 });
+}
+function showPanel(what) { if (what === 'time') showTime(); else if (what === 'sun') showSun(); else if (what === 'moon') showMoon(); }
+const SHOW_GUESS = [
+  ['time', /\b(what('?s| is)? the time|what time|time is it|current time|the time now|what('?s| is) the date|what day|how much of (the|my) day|percent(age)? of the day)\b/i],
+  ['sun', /\b(sunrise|sunset)\b|\bsun\b.*\b(position|where|rise|set|high|angle|up)\b|\bwhere('?s| is) the sun\b/i],
+  ['moon', /\bmoon(rise|set)\b|\bmoon\b.*\b(position|where|phase|rise|set|full|up|tonight)\b|\bphase of the moon\b/i]];
+function guessShow(text) { return SHOW_GUESS.filter(g => g[1].test(text)).map(g => g[0]); }
+
+/* ---------- test runs ---------- */
+const TEST_GUESS = /\b(test|simulate|simulation)\b|\b\d+\s*(times|trials|flips|rolls|tosses)\b|\bodds\b|\bprobabilit/i;
+function showWorking(text) { pop('work', 'TESTING', b => spinnerBody(b, text || 'Running the test, sir...')); }
+function runWorking(sim) {
+  return new Promise(resolve => {
+    pop('work', 'TESTING', (b, p) => {
+      const t = document.createElement('div'); t.className = 'sub';
+      const s = document.createElement('span'); s.className = 'spin';
+      t.append(s, document.createTextNode('Running ' + Number(sim.trials).toLocaleString('en-GB') + ' trials...')); b.appendChild(t);
+      const dots = document.createElement('div'); dots.className = 'dots'; b.appendChild(dots);
+      const trace = (sim.trace || []).slice(0, 40); let i = 0;
+      if (!trace.length) { setTimeout(() => { closePop('work'); resolve(); }, 500); return; }
+      p.iv = setInterval(() => {
+        if (i >= trace.length) { clearInterval(p.iv); setTimeout(() => { closePop('work'); resolve(); }, 250); return; }
+        const d = document.createElement('div'); const v = trace[i++];
+        d.className = 'dot ' + (sim.kind === 'dice' ? 'hit' : v ? 'hit' : 'miss'); dots.appendChild(d);
+      }, 32);
+    });
+  });
+}
+function showSimResult(sim) {
+  pop('sim', sim.title, b => {
+    const pct = x => (x * 100).toFixed(1) + '%';
+    const big = document.createElement('div'); big.className = 'big';
+    big.textContent = Number(sim.hits).toLocaleString('en-GB') + ' / ' + Number(sim.trials).toLocaleString('en-GB');
+    const ev = document.createElement('div'); ev.className = 'sub'; ev.textContent = sim.event + ': ' + pct(sim.observed);
+    const diff = (sim.observed - sim.expected) * 100;
+    const ex = document.createElement('div'); ex.className = 'sub';
+    ex.textContent = 'Expected ' + pct(sim.expected) + ' | Difference ' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + ' points';
+    b.append(big, ev, ex);
+    const max = Math.max(1, ...(sim.hist || []).map(h => h[1]));
+    (sim.hist || []).forEach(h => {
+      const row = document.createElement('div'); row.className = 'barrow';
+      const a = document.createElement('span'); a.textContent = h[0];
+      const bar = document.createElement('div'); bar.className = 'bar'; const fill = document.createElement('i'); fill.style.width = (h[1] / max * 100).toFixed(1) + '%'; bar.appendChild(fill);
+      const n = document.createElement('em'); n.textContent = Number(h[1]).toLocaleString('en-GB'); row.append(a, bar, n); b.appendChild(row);
+    });
+    if (sim.extra) { const e = document.createElement('div'); e.className = 'sub'; e.style.marginTop = '8px'; e.textContent = sim.extra; b.appendChild(e); }
+  }, { life: 'timed', secs: 14 });
+}
+
+/* ---------- web sources ---------- */
+function sourcesList(box, list) {
+  list.forEach(s => {
+    const a = document.createElement('a'); a.className = 'src'; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.href = /^https?:\/\//.test(s.url) ? s.url : '#';
+    const t = document.createElement('b'); t.textContent = s.title || s.domain;
+    const d = document.createElement('small'); d.textContent = s.domain + (s.listed ? ' (listed by STIGMA, not checked)' : '');
+    a.append(t, d); box.appendChild(a);
+  });
+}
+function showSources(list) {
+  if (!list || !list.length) return;
+  pop('src', 'SOURCES (' + list.length + ')', b => sourcesList(b, list), { life: 'manual' });
+}
+
+/* ---------- conversations ---------- */
+function saveChats() {
+  for (let i = 0; i < 4; i++) {
+    if (store.set('stigma_chats', chats)) break;
+    chats.sort((a, b) => b.updated - a.updated); chats = chats.slice(0, Math.max(1, chats.length - 8));
+  }
+  store.set('stigma_cur', curId);
+}
+function curChat(create) {
+  let c = chats.find(x => x.id === curId);
+  if (!c && create) {
+    c = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: 'New chat', created: Date.now(), updated: Date.now(), messages: [] };
+    chats.unshift(c); curId = c.id;
+  }
+  return c || null;
+}
+function addMsg(chat, role, content, extra) {
+  chat.messages.push(Object.assign({ role, content, t: Date.now() }, extra || {}));
+  chat.updated = Date.now();
+  if (role === 'user' && chat.title === 'New chat') chat.title = content.replace(/\s+/g, ' ').slice(0, 48);
+  saveChats();
+}
+const when = t => new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+const cap = $('cap');
+function addLine(cls, text) {
+  const d = document.createElement('div'); d.className = 'l ' + cls; d.textContent = text; cap.appendChild(d);
+  while (cap.children.length > 3) cap.removeChild(cap.firstChild);
+  cap.scrollTop = cap.scrollHeight;
+}
+function greet() {
+  const h = new Date().getHours();
+  return (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', sir. How may I assist?';
+}
+function renderCaption() {
+  cap.innerHTML = '';
+  const c = curChat(false);
+  if (!c || !c.messages.length) { addLine('bot', greet()); return; }
+  c.messages.slice(-2).forEach(m => addLine(m.role === 'user' ? 'you' : 'bot', m.content));
+}
+
+function addFacts(facts) {
+  let added = false;
+  (facts || []).forEach(f => {
+    f = String(f).trim().slice(0, 200);
+    if (!f || memory.some(m => m.toLowerCase() === f.toLowerCase())) return;
+    memory.push(f); added = true;
+  });
+  if (memory.length > 40) memory = memory.slice(-40);
+  if (added) { store.set('stigma_memory', memory); flash('NOTED'); }
+}
+
+function b64ToBlob(b64) {
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: 'audio/mpeg' });
+}
+async function play(blob) {
+  const url = URL.createObjectURL(blob), a = new Audio(url); let src = null;
+  try {
+    ensureAudio();
+    if (actx) {
+      if (actx.state === 'suspended') await actx.resume();
+      src = actx.createMediaElementSource(a);
+      src.connect(analyser); analyser.connect(actx.destination);
+    }
+  } catch (e) {}
+  setState('speaking');
+  const done = () => { setState('idle'); speechDone(); URL.revokeObjectURL(url); try { src && src.disconnect(); } catch (e) {} };
+  a.onended = done; a.onerror = done;
+  try { await a.play(); } catch (e) { done(); }
+}
+
+function fail(msg) { closePop('work'); addLine('bot', msg); setState('idle'); }
+
+async function send(text) {
+  if (busy) return; busy = true;
+  try {
+    ensureAudio(); if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+    const chat = curChat(true);
+    const history = chat.messages.slice(-20).map(m => ({ role: m.role, content: m.content }));
+    Object.keys(pops).forEach(id => closePop(id));   /* a new question clears the old pop-ups */
+    addMsg(chat, 'user', text); addLine('you', text); setState('thinking');
+    Object.keys(pops).forEach(id => closePop(id));   /* a new question clears the old pop-ups */
+    if (TEST_GUESS.test(text)) showWorking();
+    let r = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        r = await fetch(S.voice ? '/converse' : '/chat', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Password': pw },
+          body: JSON.stringify({ message: text, history, memory, contacts: contacts.map(c => c.name), loc: (S.loc ? loc : null) })
+        });
+      } catch (e) { return fail('I cannot reach the server, sir. It may be waking up. Do try again in a moment.'); }
+      if (r.status === 401) {
+        pw = prompt('Password?') || '';
+        try { localStorage.setItem('stigma_pw', pw); } catch (e) {}
+        continue;
+      }
+      break;
+    }
+    if (!r.ok) return fail('Error: ' + (await r.text()).slice(0, 300));
+    const j = await r.json();
+    await deliver(j, text, chat);
+  } catch (e) { fail('Something went wrong on my side, sir. Do try that again.'); }
+  finally { busy = false; }
+}
+
+async function deliver(j, text, chat) {
+  const reply = j.reply || '';
+  if (j.sim) await runWorking(j.sim); else closePop('work');
+  addLine('bot', reply);
+  addMsg(chat, 'assistant', reply, j.sources && j.sources.length ? { sources: j.sources } : null);
+  lastReply = reply;
+  if (j.sim) showSimResult(j.sim);
+  let shows = j.show || []; if (!shows.length) shows = guessShow(text);
+  shows.forEach(showPanel);
+  showSources(j.sources);
+  showActions(j.actions); addFacts(j.remember);
+  if (S.voice && j.audio) { play(b64ToBlob(j.audio)); }
+  else {
+    setState('idle'); endSpeechLater(reply);
+    if (S.voice && j.voice_error) addLine('you', 'Voice unavailable: ' + j.voice_error);
+  }
+}
+
+$('f').onsubmit = e => { e.preventDefault(); const v = $('t').value.trim(); if (!v) return; $('t').value = ''; send(v); };
+
+/* ---------- microphone ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SR) $('mic').hidden = true;
+else $('mic').onclick = () => {
+  if (S.hf) { awakeUntil = Date.now() + 8000; beep(880, 0.08); flash('YES, SIR?'); return; }
+  ensureAudio(); if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  const rec = new SR(); rec.lang = 'en-GB';
+  rec.onstart = () => setState('listening');
+  rec.onresult = ev => send(ev.results[0][0].transcript);
+  rec.onerror = () => { if (state === 'listening') setState('idle'); };
+  rec.onend = () => { if (state === 'listening') setState('idle'); };
+  try { rec.start(); } catch (e) {}
+};
+
+/* ---------- panels ---------- */
+function openPanel(title, build) {
+  $('ptitle').textContent = title;
+  const b = $('pbody'); b.innerHTML = ''; build(b);
+  $('panel').classList.add('open'); b.scrollTop = 0;
+}
+$('pclose').onclick = () => $('panel').classList.remove('open');
+function mkBtn(label, fn, alt, wide) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (alt ? ' alt' : '') + (wide ? ' wide' : '');
+  b.textContent = label; b.onclick = fn; return b;
+}
+function mkInput(ph, type) { const i = document.createElement('input'); i.type = type || 'text'; i.placeholder = ph; i.autocomplete = 'off'; return i; }
+
+/* chats */
+function renderChatList(b) {
+  $('ptitle').textContent = 'CHATS'; b.innerHTML = '';
+  b.appendChild(mkBtn('Start a new chat', () => { startNew(); $('panel').classList.remove('open'); }, false, true));
+  const q = mkInput('Search your chats'); q.id = 'search'; b.appendChild(q);
+  const list = document.createElement('div'); list.style.cssText = 'display:flex;flex-direction:column;gap:10px'; b.appendChild(list);
+  const draw = () => {
+    list.innerHTML = ''; const term = q.value.trim().toLowerCase();
+    const shown = chats.slice().sort((a, c) => c.updated - a.updated)
+      .filter(c => !term || c.title.toLowerCase().includes(term) || c.messages.some(m => m.content.toLowerCase().includes(term)));
+    if (!shown.length) { const e = document.createElement('div'); e.className = 'sub'; e.textContent = term ? 'No chats match that, sir.' : 'No saved chats yet, sir. Every chat is saved automatically.'; list.appendChild(e); return; }
+    shown.forEach(c => {
+      const row = document.createElement('div'); row.className = 'row tap';
+      const s = document.createElement('div'); s.textContent = c.title;
+      const sm = document.createElement('small'); sm.textContent = when(c.updated) + ' | ' + c.messages.length + ' messages' + (c.id === curId ? ' | current' : ''); s.appendChild(sm);
+      row.appendChild(s); row.onclick = () => renderTranscript(b, c); list.appendChild(row);
+    });
+  };
+  q.oninput = draw; draw();
+}
+function renderTranscript(b, chat) {
+  $('ptitle').textContent = 'CHAT'; b.innerHTML = '';
+  const bar = document.createElement('div'); bar.className = 'btns';
+  let armed = false;
+  const del = mkBtn('Delete', () => {
+    if (!armed) { armed = true; del.textContent = 'Tap again to delete'; setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3000); return; }
+    chats = chats.filter(c => c !== chat); if (curId === chat.id) { curId = null; renderCaption(); } saveChats(); renderChatList(b);
+  }, true);
+  bar.append(mkBtn('Back', () => renderChatList(b), true),
+    mkBtn('Continue', () => { curId = chat.id; saveChats(); renderCaption(); $('panel').classList.remove('open'); }),
+    mkBtn('Copy', () => {
+      const t = chat.messages.map(m => (m.role === 'user' ? 'You' : 'STIGMA') + ' (' + when(m.t) + '): ' + m.content).join('\n\n');
+      try { navigator.clipboard.writeText(t).then(() => flash('COPIED'), () => flash('COPY BLOCKED')); } catch (e) { flash('COPY BLOCKED'); }
+      $('panel').classList.remove('open');
+    }, true), del);
+  b.appendChild(bar);
+  const h = document.createElement('div'); h.className = 'sub'; h.textContent = chat.title + ' | started ' + when(chat.created); b.appendChild(h);
+  chat.messages.forEach(m => {
+    const d = document.createElement('div'); d.className = 'bub' + (m.role === 'user' ? ' me' : '');
+    const sm = document.createElement('small'); sm.textContent = (m.role === 'user' ? 'YOU' : 'STIGMA') + ' | ' + when(m.t);
+    const p = document.createElement('p'); p.textContent = m.content; d.append(sm, p);
+    if (m.sources && m.sources.length) {
+      const box = document.createElement('div'); box.hidden = true; sourcesList(box, m.sources);
+      const tg = mkBtn('Sources (' + m.sources.length + ')', () => { box.hidden = !box.hidden; }, true); tg.style.alignSelf = 'flex-start';
+      d.append(tg, box);
+    }
+    b.appendChild(d);
+  });
+}
+function startNew() { curId = null; saveChats(); cap.innerHTML = ''; addLine('bot', 'A clean slate, sir. Do try to make it interesting.'); }
+$('chatsBtn').onclick = () => openPanel('CHATS', renderChatList);
+$('newBtn').onclick = startNew;
+
+/* memory */
+function renderMemory(b) {
+  $('ptitle').textContent = 'MEMORY'; b.innerHTML = '';
+  b.appendChild(mkBtn('Back to menu', () => renderMenu(b), true));
+  if (!memory.length) { const e = document.createElement('div'); e.className = 'sub'; e.textContent = 'I have nothing on file yet, sir.'; b.appendChild(e); }
+  memory.forEach((m, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const s = document.createElement('span'); s.textContent = m;
+    row.append(s, mkBtn('Forget', () => { memory.splice(i, 1); store.set('stigma_memory', memory); renderMemory(b); }, true)); b.appendChild(row);
+  });
+  if (memory.length) b.appendChild(mkBtn('Forget all memories', () => { memory = []; store.set('stigma_memory', memory); renderMemory(b); }, true, true));
+}
+
+/* contacts (kept on this phone, never sent to the server) */
+function findContact(q) {
+  q = String(q || '').trim().toLowerCase(); if (q.length < 2) return null;
+  return contacts.find(c => c.name.toLowerCase() === q)
+    || contacts.find(c => c.name.toLowerCase().startsWith(q) || q.startsWith(c.name.toLowerCase()))
+    || contacts.find(c => c.name.toLowerCase().includes(q)) || null;
+}
+const PHONE = /^\+?\d[\d\s().-]{2,}$/;
+function resolveTo(kind, val) {
+  val = String(val || '').trim();
+  if (kind === 'email') {
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return val;
+    const c = findContact(val); return c && c.email ? c.email : '';
+  }
+  if (PHONE.test(val)) return val.replace(/[^\d+]/g, '');
+  const c = findContact(val); return c && c.phone ? c.phone.replace(/[^\d+]/g, '') : '';
+}
+function renderContacts(b) {
+  $('ptitle').textContent = 'CONTACTS'; b.innerHTML = '';
+  b.appendChild(mkBtn('Back to menu', () => renderMenu(b), true));
+  const intro = document.createElement('div'); intro.className = 'sub';
+  intro.textContent = 'Saved on this phone only, sir. The server only ever sees the names.'; b.appendChild(intro);
+  contacts.forEach((c, i) => {
+    const row = document.createElement('div'); row.className = 'row';
+    const s = document.createElement('span'); s.textContent = c.name + (c.phone ? ' | ' + c.phone : '') + (c.email ? ' | ' + c.email : '');
+    row.append(s, mkBtn('Delete', () => { contacts.splice(i, 1); store.set('stigma_contacts', contacts); renderContacts(b); }, true)); b.appendChild(row);
+  });
+  const f = document.createElement('form'); f.className = 'pform';
+  const n = mkInput('Name, e.g. Mum'), p = mkInput('Phone number', 'tel'), e = mkInput('Email address', 'email');
+  const add = document.createElement('button'); add.className = 'btn'; add.textContent = 'Add contact'; f.append(n, p, e, add);
+  f.onsubmit = ev => {
+    ev.preventDefault(); const name = n.value.trim(); if (!name || (!p.value.trim() && !e.value.trim())) return;
+    contacts = contacts.filter(c => c.name.toLowerCase() !== name.toLowerCase());
+    contacts.push({ name: name.slice(0, 40), phone: p.value.trim().slice(0, 30), email: e.value.trim().slice(0, 100) });
+    store.set('stigma_contacts', contacts); renderContacts(b);
+  };
+  b.appendChild(f);
+}
+
+/* systems */
+async function renderSystems(b) {
+  $('ptitle').textContent = 'SYSTEMS'; b.innerHTML = '';
+  b.appendChild(mkBtn('Back to menu', () => renderMenu(b), true));
+  const row = (k, v) => { const r = document.createElement('div'); r.className = 'row'; const a = document.createElement('span'); a.textContent = k; const c = document.createElement('b'); c.textContent = v; r.append(a, c); b.appendChild(r); };
+  try {
+    const h = await (await fetch('/health')).json();
+    row('BRAIN KEY', h.groq ? 'OK' : 'MISSING'); row('VOICE KEY', h.fish ? 'OK' : 'MISSING');
+    row('LANGUAGE MODEL', h.model || '?');
+    row('WEB SEARCH', String(h.model || '').startsWith('openai/gpt-oss') ? 'ACTIVE' : 'OFF');
+    const ls = h.last_search && h.last_search.sources_found;
+    row('LAST SEARCH SOURCES', ls === null || ls === undefined ? 'NONE YET' : String(ls));
+    row('EMAIL', h.email_direct ? 'SENDS DIRECTLY' : 'OPENS EMAIL APP');
+    row('3D MODEL FILE', h.has_model_file ? 'FOUND' : 'NOT FOUND');
+  } catch (e) { const d = document.createElement('div'); d.className = 'sub'; d.textContent = 'I cannot reach the server, sir.'; b.appendChild(d); }
+  row('LOCATION', S.loc ? (loc ? 'LOCKED' : 'SEARCHING') : 'OFF'); row('HANDS-FREE', S.hf ? 'LISTENING' : 'OFF');
+  row('CHATS SAVED', String(chats.length)); row('CONTACTS', String(contacts.length));
+  row('MEMORY', memory.length + ' ENTRIES'); row('TIMERS', timers.length + ' ACTIVE');
+}
+
+/* menu */
+function toggleRow(b, label, desc, key, onChange) {
+  const row = document.createElement('label'); row.className = 'row tap';
+  const s = document.createElement('div'); s.textContent = label; const sm = document.createElement('small'); sm.textContent = desc; s.appendChild(sm);
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!S[key];
+  cb.onchange = () => onChange(cb.checked, cb); row.append(s, cb); b.appendChild(row);
+}
+function renderMenu(b) {
+  $('ptitle').textContent = 'MENU'; b.innerHTML = '';
+  toggleRow(b, 'Voice', 'STIGMA speaks its replies', 'voice', v => setS('voice', v));
+  toggleRow(b, 'Hands-free', 'Say "Hey STIGMA". Needs the screen on.', 'hf', (v, cb) => {
+    if (v && !SR) { cb.checked = false; flash('NOT SUPPORTED HERE'); return; }
+    setS('hf', v);
+    if (v) { ensureAudio(); startHF(); keepAwake(); flash('SAY "HEY STIGMA"'); }
+    else { try { hfRec && hfRec.stop(); } catch (e) {} try { wakeLock && wakeLock.release(); } catch (e) {} }
+  });
+  toggleRow(b, 'Location', 'For weather, the sun and the moon', 'loc', (v, cb) => {
+    setS('loc', v); if (v) getLoc(false, cb);
+  });
+  b.appendChild(mkBtn('Memory', () => renderMemory(b), true, true));
+  b.appendChild(mkBtn('Contacts', () => renderContacts(b), true, true));
+  b.appendChild(mkBtn('Systems check', () => renderSystems(b), true, true));
+}
+$('menuBtn').onclick = () => openPanel('MENU', renderMenu);
+
+/* ---------- timers and alarms ---------- */
+function addTimer(at, label) { timers.push({ id: Date.now() + Math.random(), at, label: label || '' }); store.set('stigma_timers', timers); }
+function fmtDur(sec) {
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60, out = [];
+  if (h) out.push(h + (h === 1 ? ' hour' : ' hours')); if (m) out.push(m + (m === 1 ? ' minute' : ' minutes'));
+  if (s && !h) out.push(s + (s === 1 ? ' second' : ' seconds')); return out.join(' ') || '0 seconds';
+}
+function ringTimer(t) {
+  const late = Date.now() - t.at > 60000, c = card(late ? 'MISSED TIMER' : 'TIMER COMPLETE');
+  let n = 0, iv = null;
+  const stop = () => { clearInterval(iv); try { speechSynthesis.cancel(); } catch (e) {} c.remove(); };
+  btns(c, [['Dismiss', stop]]);
+  note(c, (t.label || 'Your timer') + (late ? ' went off while STIGMA was closed.' : ' is complete, sir.'));
+  actionsEl.prepend(c);
+  ensureAudio(); if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  iv = setInterval(() => { beep(880, 0.18, 0.12); try { navigator.vibrate && navigator.vibrate(200); } catch (e) {} if (++n >= 20) clearInterval(iv); }, 700);
+  try { const u = new SpeechSynthesisUtterance((t.label ? t.label + '. ' : '') + 'Your timer is complete, sir.'); u.lang = 'en-GB'; speechSynthesis.speak(u); } catch (e) {}
+}
+function tickTimers() {
+  const now = Date.now(), due = timers.filter(t => t.at <= now);
+  if (!due.length) return;
+  timers = timers.filter(t => t.at > now); store.set('stigma_timers', timers); due.forEach(ringTimer);
+}
+setInterval(tickTimers, 1000);
+
+/* ---------- authorise cards (nothing happens until you tap) ---------- */
+const actionsEl = $('actions');
+function card(title) { const c = document.createElement('div'); c.className = 'card'; const h = document.createElement('h3'); h.textContent = title; c.appendChild(h); return c; }
+function field(c, label, value, multi) {
+  const l = document.createElement('label'); l.textContent = label;
+  const i = document.createElement(multi ? 'textarea' : 'input'); if (!multi) i.type = 'text';
+  i.value = value || ''; i.autocomplete = 'off'; l.appendChild(i); c.appendChild(l); return i;
+}
+function btns(c, list) {
+  const d = document.createElement('div'); d.className = 'btns';
+  list.forEach(([t, fn, alt]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (alt ? ' alt' : ''); b.textContent = t; b.onclick = fn; d.appendChild(b); });
+  c.appendChild(d);
+}
+function note(c, text) { let m = c.querySelector('.msg'); if (!m) { m = document.createElement('div'); m.className = 'msg'; c.appendChild(m); } m.textContent = text; }
+function lock(c, on) { c.querySelectorAll('input,textarea,button').forEach(x => { x.disabled = on; }); }
+function finish(c, text) { lock(c, true); note(c, text); setTimeout(() => c.remove(), 25000); }
+function intentUrl(action, extras) { return 'intent:#Intent;action=' + action + ';' + extras.map(e => e[0] + '.' + e[1] + '=' + encodeURIComponent(e[2])).join(';') + ';end'; }
+function openLink(url) { window.location.href = url; }
+
+function showAction(a) {
+  const c = card({ timer: 'TIMER', alarm: 'ALARM', sms: 'TEXT MESSAGE', email: 'EMAIL', call: 'CALL' }[a.type] || 'ACTION');
+  const cancel = ['Cancel', () => c.remove(), true];
+  if (a.type === 'timer') {
+    btns(c, [['Clock app', () => {
+        openLink(intentUrl('android.intent.action.SET_TIMER', [['i', 'android.intent.extra.alarm.LENGTH', a.seconds], ['S', 'android.intent.extra.alarm.MESSAGE', a.label || 'STIGMA']]));
+        finish(c, 'Sent to your Clock app, sir. If nothing opened, ask again and choose Keep here.'); }],
+      ['Keep here', () => { addTimer(Date.now() + a.seconds * 1000, a.label); finish(c, 'Timer set. It sounds while STIGMA is open.'); }, true], cancel]);
+    note(c, fmtDur(a.seconds) + (a.label ? ' | ' + a.label : '') + ' | Clock app rings anywhere, Keep here only while STIGMA is open.');
+  } else if (a.type === 'alarm') {
+    const p = n => String(n).padStart(2, '0');
+    btns(c, [['Clock app', () => {
+        openLink(intentUrl('android.intent.action.SET_ALARM', [['i', 'android.intent.extra.alarm.HOUR', a.hour], ['i', 'android.intent.extra.alarm.MINUTES', a.minute], ['S', 'android.intent.extra.alarm.MESSAGE', a.label || 'STIGMA']]));
+        finish(c, 'Sent to your Clock app, sir. Confirm it there.'); }],
+      ['Keep here', () => {
+        const d = new Date(); d.setHours(a.hour, a.minute, 0, 0); if (d <= new Date()) d.setDate(d.getDate() + 1);
+        addTimer(d.getTime(), a.label || 'Alarm'); finish(c, 'Alarm set. It sounds while STIGMA is open.'); }, true], cancel]);
+    note(c, p(a.hour) + ':' + p(a.minute) + (a.label ? ' | ' + a.label : '') + ' | Clock app rings anywhere, Keep here only while STIGMA is open.');
+  } else if (a.type === 'sms' || a.type === 'call' || a.type === 'email') {
+    const to = field(c, 'TO', a.to);
+    const subj = a.type === 'email' ? field(c, 'SUBJECT', a.subject) : null;
+    const body = a.type !== 'call' ? field(c, 'MESSAGE', a.body, true) : null;
+    const kind = a.type === 'email' ? 'email' : 'phone';
+    const hint = () => {
+      const v = resolveTo(kind, to.value);
+      note(c, v ? 'Using ' + v : 'No ' + (kind === 'email' ? 'address' : 'number') + ' on file for that name. Type one in the To box, or add the contact in Menu.');
+    };
+    to.oninput = hint;
+    const check = () => { const d = resolveTo(kind, to.value); if (!d) { hint(); return null; } if (body && !body.value.trim()) { note(c, 'The message is empty, sir.'); return null; } return d; };
+    const openMail = () => { const d = check(); if (!d) return; openLink('mailto:' + d + '?subject=' + encodeURIComponent(subj.value) + '&body=' + encodeURIComponent(body.value)); finish(c, 'Opened in your email app. Press send there to complete it.'); };
+    const sendMail = async () => {
+      const d = check(); if (!d) return; lock(c, true); note(c, 'Sending...');
+      try {
+        const r = await fetch('/send-email', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Password': pw }, body: JSON.stringify({ to: d, subject: subj.value, body: body.value }) });
+        if (r.ok) { finish(c, 'Sent to ' + d + ', sir.'); return; }
+        const t = await r.text(); let m = t; try { m = JSON.parse(t).detail || t; } catch (e) {}
+        lock(c, false); note(c, 'Could not send: ' + String(m).slice(0, 140));
+      } catch (e) { lock(c, false); note(c, 'Could not reach the server.'); }
+    };
+    if (a.type === 'sms') btns(c, [['Authorise', () => { const d = check(); if (!d) return; openLink('sms:' + d + '?body=' + encodeURIComponent(body.value)); finish(c, 'Opened in Messages. Press send there to complete it.'); }], cancel]);
+    else if (a.type === 'call') btns(c, [['Authorise', () => { const d = check(); if (!d) return; openLink('tel:' + d); finish(c, 'Opened the dialler. Press call there to connect.'); }], cancel]);
+    else if (emailDirect) btns(c, [['Authorise and send', sendMail], ['Open in email app', openMail, true], cancel]);
+    else btns(c, [['Authorise', openMail], cancel]);
+    hint();
+  } else return;
+  actionsEl.appendChild(c);
+  while (actionsEl.children.length > 3) actionsEl.removeChild(actionsEl.firstChild);
+  actionsEl.scrollTop = actionsEl.scrollHeight;
+}
+function showActions(list) { if (!list || !list.length) return; list.forEach(showAction); }
+
+/* ---------- location ---------- */
+function getLoc(silent, cb) {
+  if (!navigator.geolocation) { setS('loc', false); if (cb) cb.checked = false; flash('NO GPS'); return; }
+  navigator.geolocation.getCurrentPosition(p => {
+    loc = { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) };
+    store.set('stigma_loc', loc); if (!silent) flash('LOCATION LOCKED');
+  }, () => { setS('loc', false); if (cb) cb.checked = false; flash('LOCATION DENIED'); }, { maximumAge: 600000, timeout: 10000 });
+}
+
+/* ---------- hands-free: say "Hey STIGMA" ---------- */
+const WAKE = /\b(?:(?:hey|hi|ok|okay)\s+)?(?:stigma|stigmer|stigmah|stigmar|stig\s?ma)\b[\s,.!?]*/i;
+async function keepAwake() {
+  try { if (navigator.wakeLock && S.hf && document.visibilityState === 'visible') wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+function heard(text) {
+  text = String(text || '').trim();
+  if (!text || state !== 'idle' || busy || Date.now() < ignoreUntil) return;
+  const low = text.toLowerCase();
+  if (low.length > 12 && lastReply.toLowerCase().includes(low.slice(0, 24))) return; /* its own voice */
+  const m = text.match(WAKE);
+  if (m) {
+    const cmd = text.slice(m.index + m[0].length).trim();
+    if (cmd.length > 1) { awakeUntil = 0; send(cmd); } else { awakeUntil = Date.now() + 8000; beep(880, 0.08); flash('YES, SIR?'); }
+    return;
+  }
+  if (Date.now() < awakeUntil) { awakeUntil = 0; send(text); }
+}
+function startHF() {
+  if (!SR || !S.hf || hfRunning) return;
+  const r = new SR(); r.continuous = true; r.interimResults = false; r.lang = 'en-GB';
+  r.onstart = () => { hfRunning = true; };
+  r.onresult = ev => { for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) heard(ev.results[i][0].transcript); };
+  r.onerror = ev => { if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { setS('hf', false); flash('MIC BLOCKED'); } };
+  r.onend = () => { hfRunning = false; if (S.hf) setTimeout(startHF, 350); };
+  hfRec = r; try { r.start(); } catch (e) { hfRunning = false; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.hf) { keepAwake(); startHF(); } });
+document.addEventListener('pointerdown', () => { ensureAudio(); if (S.hf) { startHF(); keepAwake(); } }, { once: true });
+
+/* ---------- start-up ---------- */
+renderCaption();
+try { if (S.hf) startHF(); if (S.loc) getLoc(true); } catch (e) {}
+fetch('/health').then(r => r.json()).then(h => { emailDirect = !!h.email_direct; }).catch(() => {});
+</script>
+</body>
+</html>
